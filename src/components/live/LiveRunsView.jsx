@@ -18,11 +18,11 @@ function SessionRow({ s, open, toggle }) {
   const label = s.master ? 'masternicho' : s.name;
   return (
     <button onClick={() => toggle(s.id)}
-      className={`w-full text-left px-3 py-1.5 border-l-2 transition-colors ${isOpen ? 'border-emerald-500 bg-slate-800/60' : 'border-transparent hover:bg-slate-800/30'}`}>
+      className={`w-full text-left px-3 py-1.5 border-l-2 transition-colors ${isOpen ? 'border-slate-400 bg-slate-800/60' : 'border-transparent hover:bg-slate-800/30'}`}>
       <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500' : 'bg-slate-600'}`} />
-        <span className={`text-[12px] truncate ${s.master ? 'text-amber-300 font-semibold' : 'text-slate-200'}`}>{label}</span>
-        {s.bastion && !s.master && <span className="text-[9px] text-violet-400 shrink-0">bastion</span>}
+        <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-slate-300' : 'bg-slate-700'}`} />
+        <span className={`text-[12px] truncate ${s.master ? 'text-slate-100 font-semibold' : 'text-slate-300'}`}>{label}</span>
+        {s.bastion && !s.master && <span className="text-[9px] text-slate-500 shrink-0">bastion</span>}
       </div>
       <div className="text-[9px] font-mono text-slate-500 mt-0.5">{s.id.slice(0, 8)} · {Math.round((s.size || 0) / 1024)}KB</div>
     </button>
@@ -49,7 +49,7 @@ function Composer({ sessionId, talkable, api, getToken }) {
   };
   return (
     <div className="shrink-0 border-t border-slate-800 bg-[#0d1117] px-2 py-1 flex items-center gap-1">
-      <span className="text-emerald-400 font-mono text-[12px]">{'>'}</span>
+      <span className="text-slate-400 font-mono text-[12px]">{'>'}</span>
       <input
         value={val}
         onChange={(e) => setVal(e.target.value)}
@@ -58,7 +58,7 @@ function Composer({ sessionId, talkable, api, getToken }) {
         disabled={!talkable}
         className="flex-1 bg-transparent text-slate-200 text-[12px] font-mono outline-none placeholder:text-slate-600 disabled:cursor-not-allowed"
       />
-      {err && <span className="text-[10px] text-rose-500 font-mono">{err}</span>}
+      {err && <span className="text-[10px] text-slate-400 font-mono">{err}</span>}
     </div>
   );
 }
@@ -109,12 +109,12 @@ export default function LiveRunsView() {
           {err && <span className="text-rose-500 ml-auto normal-case font-mono text-[9px]">{err}</span>}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="px-3 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-500/80">active · {active.length}</div>
+          <div className="px-3 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">active · {active.length}</div>
           {active.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
-          {active.length === 0 && !err && <div className="px-3 py-1 text-[10px] text-slate-600">none</div>}
+          {active.length === 0 && !err && <div className="px-3 py-1 text-[10px] text-slate-500">none</div>}
           {idle.length > 0 && (
             <>
-              <button onClick={() => setShowIdle((v) => !v)} className="w-full px-3 pt-3 pb-0.5 text-left text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400">
+              <button onClick={() => setShowIdle((v) => !v)} className="w-full px-3 pt-3 pb-0.5 text-left text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200">
                 {showIdle ? '−' : '+'} idle · {idle.length}
               </button>
               {showIdle && idle.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
@@ -134,10 +134,10 @@ export default function LiveRunsView() {
               return (
                 <div key={id} className="flex flex-col min-h-0 rounded-md overflow-hidden border border-slate-800 bg-[#0d1117]">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#161b22] border-b border-slate-800 shrink-0">
-                    <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500' : 'bg-slate-600'}`} />
-                    <span className={`text-[11px] font-semibold truncate ${s.master ? 'text-amber-300' : 'text-slate-200'}`}>{s.master ? 'masternicho' : s.name}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-slate-300' : 'bg-slate-700'}`} />
+                    <span className={`text-[11px] font-semibold truncate ${s.master ? 'text-slate-100' : 'text-slate-200'}`}>{s.master ? 'masternicho' : s.name}</span>
                     <span className="text-[9px] font-mono text-slate-600 truncate">{s.cwd}</span>
-                    <button onClick={() => toggle(id)} className="ml-auto text-slate-500 hover:text-rose-400 shrink-0 text-[13px] leading-none">×</button>
+                    <button onClick={() => toggle(id)} className="ml-auto text-slate-500 hover:text-slate-200 shrink-0 text-[13px] leading-none">×</button>
                   </div>
                   <div className="flex-1 min-h-0"><LiveTranscript sessionId={id} /></div>
                   <Composer sessionId={id} talkable={s.talkable} api={API} getToken={getToken} />

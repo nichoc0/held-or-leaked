@@ -31,7 +31,7 @@ function Line({ t, result }) {
   if (t.kind === 'thinking') {
     return (
       <div className="text-slate-500 italic whitespace-pre-wrap py-0.5">
-        <span className="text-violet-400 not-italic">✻ </span>{t.text}
+        <span className="not-italic">✻ </span>{t.text}
       </div>
     );
   }
@@ -40,18 +40,18 @@ function Line({ t, result }) {
     const firstLines = res.split('\n').slice(0, 6).join('\n');
     return (
       <div className="py-0.5">
-        <div><span className="text-emerald-400">⏺ </span><span className="text-sky-300">{t.tool_name}</span><span className="text-slate-500">({compactArgs(t.tool_input)})</span></div>
+        <div><span className="text-slate-400">⏺ </span><span className="text-slate-300">{t.tool_name}</span><span className="text-slate-500">({compactArgs(t.tool_input)})</span></div>
         {res && <div className="text-slate-500 pl-3 whitespace-pre-wrap">⎿ {firstLines}{res.split('\n').length > 6 ? '\n  …' : ''}</div>}
       </div>
     );
   }
   if (t.kind === 'tool_result') return null;
   if (t.kind === 'system' || t.kind === 'meta') {
-    return <div className="text-slate-600 py-0.5 truncate">{t.kind === 'system' ? '⚙ ' : '↳ '}{(t.text || '').slice(0, 120)}</div>;
+    return <div className="text-slate-600 py-0.5 truncate">{t.kind === 'system' ? '· ' : '· '}{(t.text || '').slice(0, 120)}</div>;
   }
   // text
   if (t.role === 'user') {
-    return <div className="text-cyan-300 whitespace-pre-wrap py-0.5">❯ {t.text}</div>;
+    return <div className="text-slate-300 whitespace-pre-wrap py-0.5">❯ {t.text}</div>;
   }
   return <div className="text-slate-200 whitespace-pre-wrap py-0.5">{t.text}</div>;
 }
