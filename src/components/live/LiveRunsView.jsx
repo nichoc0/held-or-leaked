@@ -75,7 +75,10 @@ export default function LiveRunsView() {
   useEffect(() => {
     visible.forEach(async (s) => {
       if (sums[s.id]) return;
-      try { const r = await authed(`/api/sessions/${s.id}/summary`); if (r.ok) setSums((m) => ({ ...m, [s.id]: await r.json() })); } catch {}
+      try {
+        const r = await authed(`/api/sessions/${s.id}/summary`);
+        if (r.ok) { const j = await r.json(); setSums((m) => ({ ...m, [s.id]: j })); }
+      } catch {}
     });
   }, [visible.map((s) => s.id).join(','), showAll]); // eslint-disable-line
 
