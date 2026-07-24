@@ -15,7 +15,7 @@ the session") and multi-node bridging land next; kept out of here so this stays 
 clean, testable spine.
 """
 from __future__ import annotations
-import json, os, glob, time, asyncio, subprocess
+import json, os, glob, time, asyncio, subprocess, re
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -274,14 +274,20 @@ def _swarm_agents(turns: list) -> list:
         if t["kind"] == "tool_use" and t.get("tool_name") in SUBAGENT_TOOLS:
             idx += 1
             inp = t.get("tool_input") or ""
-            if isinstance(inp, str):
-                try:
-                    inp = json.loads(inp)
-                except Exception:
-                    inp = {"description": inp}
-            desc = (inp.get("description") or inp.get("subagent_type") or "subagent")[:60]
-            role = _infer_role(f"{inp.get('subagent_type','')} {desc}")
-            agents.append({"id": f"task-{idx}", "role": role, "name": desc[:22],
+            desc, sub_type = None, ""
+            if isinstance(inp, dict):
+                desc = inp.get("description") or inp.get("subagent_type")
+                sub_type = inp.get("subagent_type") or ""
+            else:
+                # input JSON was truncated → regex-extract the fields
+                s = str(inp)
+                m = re.search(r'"description"\s*:\s*"([^"]+)"', s)
+                mt = re.search(r'"subagent_type"\s*:\s*"([^"]+)"', s)
+                if mt: sub_type = mt.group(1)
+                desc = (m.group(1) if m else None) or (mt.group(1) if mt else None)
+            desc = (desc or "subagent")[:60]
+            role = _infer_role(f"{sub_type} {desc}")
+            agents.append({"id": f"task-{idx}", "role": role, "name": desc[:26],
                            "parent": "orch", "at": i, "summary": desc})
     return agents
 
