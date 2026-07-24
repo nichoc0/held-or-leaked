@@ -285,10 +285,17 @@ def summary(session_id: str, authorization: str = Header(None)):
     _, turns = read_turns(p, 0)
     tools = sorted({t.get("tool_name") for t in turns if t["kind"] == "tool_use" and t.get("tool_name")})
     swarm_agents = _swarm_agents(turns)
+    # live activity graph: orchestrator -> spawned agents + used tools (grows as the run does)
+    events = [{"node": "Run", "parent": None, "rel": None, "detail": "orchestrator", "kind": "recon"}]
+    for a in swarm_agents[1:]:
+        events.append({"node": f"Agent:{a['name']}", "parent": "Run", "rel": "spawned", "detail": a["summary"], "kind": "endpoint"})
+    for t in tools:
+        events.append({"node": f"Tool:{t}", "parent": "Run", "rel": "used", "detail": t, "kind": "reveal"})
     return {
         "turns": len(turns),
         "tools": tools,
         "swarmAgents": swarm_agents,
+        "events": events,
         "agents": len(swarm_agents),
         "tool_calls": sum(1 for t in turns if t["kind"] == "tool_use"),
         "thinking": sum(1 for t in turns if t["kind"] == "thinking"),

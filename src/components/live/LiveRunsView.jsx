@@ -19,12 +19,12 @@ function toRun(s, sum) {
     turns: sum?.turns || 0,
     agents: swarmAgents,
     swarmAgents,
-    tools: (sum?.tools || []).map((t) => ({ name: t, service: t })),
+    tools: sum?.tools || [],
     findings: [],
-    // live runs: don't let Swarm/Graph fall back to the Penny fixture — show
-    // the live-building state until the engine emits real run-state.
+    // live activity graph derived from the run (grows as it goes); empty swarm
+    // so it doesn't fall back to the Penny fixture.
     swarm: { campaignTurns: sum?.turns || 0, targets: [], path: [] },
-    events: [],
+    events: sum?.events || [],
   };
 }
 

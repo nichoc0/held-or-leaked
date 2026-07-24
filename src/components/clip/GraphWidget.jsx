@@ -20,8 +20,8 @@ export function GraphPage({ live = true, summary = null }) {
   const global = useGlobalGraph();
   const pb = usePlayback(EVENTS.length, { startAtEnd: true });
 
-  // assessment triples revealed up to the playback cursor (empty on a live/no run)
-  const revealed = live ? [] : EVENTS.slice(0, pb.t);
+  // live: render the run's current activity graph (grows as it goes). recorded: scrub.
+  const revealed = live ? EVENTS : EVENTS.slice(0, pb.t);
   const triples = useMemo(
     () => revealed.filter((e) => e.parent).map((e) => ({ h: e.parent, r: e.rel, t: e.node, source: 'live' })),
     [revealed],
@@ -45,7 +45,7 @@ export function GraphPage({ live = true, summary = null }) {
         <p className="text-[13px] text-slate-500 dark:text-slate-400 max-w-[460px]">
           {mode === 'global'
             ? global.loading ? 'Loading the FalkorDB cortex…' : `${global.triples.length} relations across the cortex.`
-            : live ? 'No active run. Nothing is being assessed right now.'
+            : live ? `Live. ${EVENTS.length} nodes, building as the run works.`
               : `Assessment. ${EVENTS.length} events. Scrub to replay the graph assembling.`}
         </p>
         <div className="inline-flex items-stretch border border-slate-300 dark:border-slate-700 rounded-none overflow-hidden shrink-0">
