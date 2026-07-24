@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk-real';
-import { X, CircleNotch, Terminal, Star } from '@phosphor-icons/react';
 import LiveTranscript from './LiveTranscript';
 
-// Hyprland-style tiling workspace of live Claude sessions. Left rail = the
-// sessions that matter (live + Bastion), collapsing the dead flood. Click to
-// tile a session open; multiple tiles auto-arrange like a tiling WM.
+// Mission control: tiling workspace of live Claude sessions. Left rail groups
+// Active (live + Bastion + master) vs Idle. Click to tile; each tile is a live
+// Claude Code terminal with a composer to type into the session.
 
-const MASTER = (s) => (s.cwd || '').replace(/\/$/, '') === '/Users/nca'; // the masternicho session(s)
-
-// grid columns by open-tile count (hyprland-ish auto-tiling)
 function cols(n) {
   if (n <= 1) return 1;
   if (n <= 4) return 2;
@@ -19,34 +15,68 @@ function cols(n) {
 
 function SessionRow({ s, open, toggle }) {
   const isOpen = open.includes(s.id);
-  const master = MASTER(s);
+  const label = s.master ? 'masternicho' : s.name;
   return (
     <button onClick={() => toggle(s.id)}
-      className={`w-full text-left px-3 py-1.5 border-l-2 transition-colors cursor-pointer ${isOpen ? 'border-emerald-500 bg-slate-800/60' : 'border-transparent hover:bg-slate-800/30'}`}>
+      className={`w-full text-left px-3 py-1.5 border-l-2 transition-colors ${isOpen ? 'border-emerald-500 bg-slate-800/60' : 'border-transparent hover:bg-slate-800/30'}`}>
       <div className="flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
-        {master && <Star size={10} weight="fill" className="text-amber-400 shrink-0" />}
-        <span className="text-[12px] font-medium text-slate-200 truncate">{master ? 'masternicho' : s.name}</span>
-        {s.bastion && !master && <span className="text-[7px] px-1 rounded bg-violet-500/20 text-violet-300 font-bold uppercase shrink-0">bst</span>}
+        <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+        <span className={`text-[12px] truncate ${s.master ? 'text-amber-300 font-semibold' : 'text-slate-200'}`}>{label}</span>
+        {s.bastion && !s.master && <span className="text-[9px] text-violet-400 shrink-0">bastion</span>}
       </div>
       <div className="text-[9px] font-mono text-slate-500 mt-0.5">{s.id.slice(0, 8)} · {Math.round((s.size || 0) / 1024)}KB</div>
     </button>
   );
 }
 
+function Composer({ sessionId, talkable, api, getToken }) {
+  const [val, setVal] = useState('');
+  const [err, setErr] = useState(null);
+  const send = async () => {
+    if (!val.trim()) return;
+    const text = val;
+    setVal('');
+    setErr(null);
+    try {
+      const token = await getToken().catch(() => null);
+      const r = await fetch(`${api}/api/sessions/${sessionId}/input`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ text }),
+      });
+      if (!r.ok) setErr(r.status === 409 ? 'read-only (not in a tmux)' : `send ${r.status}`);
+    } catch { setErr('send failed'); }
+  };
+  return (
+    <div className="shrink-0 border-t border-slate-800 bg-[#0d1117] px-2 py-1 flex items-center gap-1">
+      <span className="text-emerald-400 font-mono text-[12px]">{'>'}</span>
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+        placeholder={talkable ? 'type to the session, enter to send' : 'read-only (not in a tmux)'}
+        disabled={!talkable}
+        className="flex-1 bg-transparent text-slate-200 text-[12px] font-mono outline-none placeholder:text-slate-600 disabled:cursor-not-allowed"
+      />
+      {err && <span className="text-[10px] text-rose-500 font-mono">{err}</span>}
+    </div>
+  );
+}
+
 export default function LiveRunsView() {
   const { getToken } = useAuth();
   const [sessions, setSessions] = useState([]);
-  const [open, setOpen] = useState([]); // ordered list of open session ids (tiles)
+  const [open, setOpen] = useState([]);
   const [err, setErr] = useState(null);
-  const [showAll, setShowAll] = useState(false);
+  const [showIdle, setShowIdle] = useState(false);
+  const autoDone = useRef(false);
   const API = import.meta.env.VITE_API_URL || '';
 
   async function refresh() {
     try {
       const token = await getToken().catch(() => null);
       const r = await fetch(`${API}/api/sessions?scope=recent`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!r.ok) { setErr(`relay ${r.status}${r.status === 403 ? ' — not an admin' : r.status === 401 ? ' — token rejected' : ''}`); return; }
+      if (!r.ok) { setErr(`relay ${r.status}${r.status === 403 ? ' — not admin' : r.status === 401 ? ' — token rejected' : ''}`); return; }
       const d = await r.json();
       setSessions(d.sessions || []);
       setErr(null);
@@ -54,52 +84,48 @@ export default function LiveRunsView() {
   }
   useEffect(() => { refresh(); const t = setInterval(refresh, 5000); return () => clearInterval(t); }, []);
 
-  // what matters: live sessions + Bastion engagements + the master. The rest (idle
-  // amazon-vrp pool, etc.) is collapsed behind "show all".
-  const { primary, rest } = useMemo(() => {
-    const rank = (s) => (MASTER(s) ? 0 : s.live && s.bastion ? 1 : s.live ? 2 : s.bastion ? 3 : 9);
+  const { active, idle } = useMemo(() => {
+    const rank = (s) => (s.master ? 0 : s.live && s.bastion ? 1 : s.bastion ? 2 : s.live ? 3 : 9);
     const sorted = [...sessions].sort((a, b) => rank(a) - rank(b) || b.mtime - a.mtime);
-    return { primary: sorted.filter((s) => rank(s) < 9), rest: sorted.filter((s) => rank(s) === 9) };
+    return { active: sorted.filter((s) => rank(s) < 9), idle: sorted.filter((s) => rank(s) === 9) };
   }, [sessions]);
 
-  // auto-tile the live Bastion sessions + master on first load
+  // auto-tile the master + live Bastion sessions once
   useEffect(() => {
-    if (open.length === 0 && primary.length) {
-      const auto = primary.filter((s) => s.live && (s.bastion || MASTER(s))).slice(0, 4).map((s) => s.id);
-      if (auto.length) setOpen(auto);
+    if (!autoDone.current && active.length) {
+      autoDone.current = true;
+      setOpen(active.filter((s) => s.master || (s.live && s.bastion)).slice(0, 4).map((s) => s.id));
     }
-  }, [primary]); // eslint-disable-line
+  }, [active]);
 
   const toggle = (id) => setOpen((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]));
   const byId = (id) => sessions.find((s) => s.id === id);
 
   return (
     <div className="flex gap-2 h-[calc(100vh-150px)] min-h-[520px] -mx-4">
-      {/* session rail — mission control */}
       <div className="w-56 shrink-0 flex flex-col border-r border-slate-800/60 overflow-hidden">
-        <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 border-b border-slate-800/60">
-          <Terminal size={12} weight="bold" /> mission control
+        <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800/60 flex items-center">
+          mission control
           {err && <span className="text-rose-500 ml-auto normal-case font-mono text-[9px]">{err}</span>}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="px-3 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-500/80">active · {primary.length}</div>
-          {primary.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
-          {primary.length === 0 && !err && <div className="px-3 py-1 text-[10px] text-slate-600">none live</div>}
-          {rest.length > 0 && (
+          <div className="px-3 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-500/80">active · {active.length}</div>
+          {active.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
+          {active.length === 0 && !err && <div className="px-3 py-1 text-[10px] text-slate-600">none</div>}
+          {idle.length > 0 && (
             <>
-              <button onClick={() => setShowAll((v) => !v)} className="w-full px-3 pt-3 pb-0.5 text-left text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400">
-                {showAll ? '▾' : '▸'} idle · {rest.length}
+              <button onClick={() => setShowIdle((v) => !v)} className="w-full px-3 pt-3 pb-0.5 text-left text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400">
+                {showIdle ? '−' : '+'} idle · {idle.length}
               </button>
-              {showAll && rest.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
+              {showIdle && idle.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
             </>
           )}
         </div>
       </div>
 
-      {/* tiling grid */}
       <div className="flex-1 min-w-0 p-1">
         {open.length === 0 ? (
-          <div className="h-full grid place-items-center text-slate-600 text-sm font-mono">select a session to tile it</div>
+          <div className="h-full grid place-items-center text-slate-600 text-sm font-mono">select a session</div>
         ) : (
           <div className="grid gap-1.5 h-full" style={{ gridTemplateColumns: `repeat(${cols(open.length)}, minmax(0, 1fr))`, gridAutoRows: '1fr' }}>
             {open.map((id) => {
@@ -108,15 +134,13 @@ export default function LiveRunsView() {
               return (
                 <div key={id} className="flex flex-col min-h-0 rounded-md overflow-hidden border border-slate-800 bg-[#0d1117]">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#161b22] border-b border-slate-800 shrink-0">
-                    <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
-                    {MASTER(s) && <Star size={10} weight="fill" className="text-amber-400" />}
-                    <span className="text-[11px] font-semibold text-slate-200 truncate">{MASTER(s) ? 'masternicho' : s.name}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.live ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+                    <span className={`text-[11px] font-semibold truncate ${s.master ? 'text-amber-300' : 'text-slate-200'}`}>{s.master ? 'masternicho' : s.name}</span>
                     <span className="text-[9px] font-mono text-slate-600 truncate">{s.cwd}</span>
-                    <button onClick={() => toggle(id)} className="ml-auto text-slate-500 hover:text-rose-400 shrink-0"><X size={13} /></button>
+                    <button onClick={() => toggle(id)} className="ml-auto text-slate-500 hover:text-rose-400 shrink-0 text-[13px] leading-none">×</button>
                   </div>
-                  <div className="flex-1 min-h-0">
-                    <LiveTranscript sessionId={id} />
-                  </div>
+                  <div className="flex-1 min-h-0"><LiveTranscript sessionId={id} /></div>
+                  <Composer sessionId={id} talkable={s.talkable} api={API} getToken={getToken} />
                 </div>
               );
             })}

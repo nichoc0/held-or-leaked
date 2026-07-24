@@ -23,8 +23,15 @@ from pydantic import BaseModel
 from clerk_auth import require_admin
 
 PROJECTS = Path(os.environ.get("CLAUDE_PROJECTS", str(Path.home() / ".claude/projects")))
+MASTER_MARKER = Path.home() / ".claude/bastion-master"  # holds the master session id
 LIVE_WINDOW_S = 120          # a session is "live" if its jsonl was written this recently
 POLL_S = 0.5                 # tail cadence — sub-second, effectively live
+
+def _master_id():
+    try:
+        return MASTER_MARKER.read_text().strip()
+    except OSError:
+        return ""
 
 app = FastAPI(title="bastion-relay")
 app.add_middleware(
@@ -174,6 +181,7 @@ def _session_meta(path: Path, enrich: bool = True, tmap: dict | None = None) -> 
         m["started"] = first_ts
         m["name"] = _friendly_name(cwd, m["project"], m["id"])
         m["bastion"] = bool(cwd and "bastion-red/engagements" in cwd)
+        m["master"] = (m["id"] == _master_id())      # exactly one masternicho
         # the tmux session that owns this cwd = the input channel ("talk to it")
         m["tmux"] = _match_tmux(cwd, tmap if tmap is not None else tmux_sessions())
         m["talkable"] = bool(m["tmux"])
@@ -238,6 +246,26 @@ def history(session_id: str, limit: int = 400, authorization: str = Header(None)
         raise HTTPException(404, "session not found")
     _, turns = read_turns(p, 0)
     return {"id": session_id, "turns": turns[-limit:], "total": len(turns)}
+
+class InputBody(BaseModel):
+    text: str
+
+@app.post("/api/sessions/{session_id}/input")
+def send_input(session_id: str, body: InputBody, authorization: str = Header(None)):
+    require_admin(authorization)
+    p = _find(session_id)
+    if not p:
+        raise HTTPException(404, "session not found")
+    cwd, _ = _resolve_cwd_ts(p)
+    tmux = _match_tmux(cwd, tmux_sessions())
+    if not tmux:
+        raise HTTPException(409, "session is not typeable — it is not running in a tmux (only tmux/bridge-owned sessions accept input)")
+    try:
+        subprocess.run(["tmux", "send-keys", "-t", tmux, body.text], timeout=4, check=True)
+        subprocess.run(["tmux", "send-keys", "-t", tmux, "Enter"], timeout=4, check=True)
+    except Exception as e:
+        raise HTTPException(500, f"send failed: {type(e).__name__}")
+    return {"ok": True, "tmux": tmux}
 
 @app.websocket("/api/sessions/{session_id}/stream")
 async def stream(ws: WebSocket, session_id: str, token: str = None):
