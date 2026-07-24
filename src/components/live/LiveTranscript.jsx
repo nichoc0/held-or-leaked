@@ -1,60 +1,62 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from '@clerk-real';
-import { ThinkingBlock } from '../ui/ThinkingBlock';
-import { ToolCallCard } from '../ui/ToolCallCard';
 
-// LiveTranscript — connects to the relay WebSocket for one session and renders
-// the live structured transcript (thinking / text / tool_use+result / system).
-// Read-only here; the admin "talk to it" input is a sibling composer.
+// LiveTranscript — a Claude Code terminal emulation for one session. Reads the
+// live WS stream and renders turns the way the CLI does: ⏺ tool calls, ⎿ results,
+// ✻ thinking, ❯ operator input. Monospace, dark, auto-scrolls with the stream.
 
-// relay base: VITE_API_URL in prod (e.g. https://relay.pistonsolutions.ai),
-// empty in dev so the Vite proxy handles /api.
 function wsUrl(id) {
   const base = import.meta.env.VITE_API_URL;
   if (base) {
     const u = new URL(base);
-    const proto = u.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${u.host}/api/sessions/${id}/stream`;
+    return `${u.protocol === 'https:' ? 'wss' : 'ws'}://${u.host}/api/sessions/${id}/stream`;
   }
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${proto}://${location.host}/api/sessions/${id}/stream`;
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/sessions/${id}/stream`;
 }
 
-const AGENT_COLOR = { orchestrator: '#0f172a', subagent: '#7c3aed' };
-
-function AgentDot({ agent }) {
-  return <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: AGENT_COLOR[agent] || '#64748b' }} />;
+function compactArgs(input) {
+  if (!input) return '';
+  let obj = input;
+  if (typeof input === 'string') { try { obj = JSON.parse(input); } catch { return input.slice(0, 80); } }
+  if (obj && typeof obj === 'object') {
+    return Object.entries(obj).map(([k, v]) => {
+      const s = typeof v === 'string' ? v : JSON.stringify(v);
+      return `${k}: ${String(s).replace(/\n/g, ' ').slice(0, 60)}`;
+    }).join(', ').slice(0, 120);
+  }
+  return String(obj).slice(0, 100);
 }
 
-function Turn({ t, resultFor }) {
-  if (t.kind === 'thinking') return <ThinkingBlock content={t.text} />;
-  if (t.kind === 'tool_use')
-    return <ToolCallCard name={t.tool_name} input={t.tool_input} result={resultFor?.text} />;
-  if (t.kind === 'tool_result') return null; // folded into its ToolCallCard
-  if (t.kind === 'system' || t.kind === 'meta')
+function Line({ t, result }) {
+  if (t.kind === 'thinking') {
     return (
-      <div className="px-3 py-1 text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">
-        {t.kind === 'system' ? '⚙ ' : '↳ '}{(t.text || '').slice(0, 160)}
+      <div className="text-slate-500 italic whitespace-pre-wrap py-0.5">
+        <span className="text-violet-400 not-italic">✻ </span>{t.text}
       </div>
     );
+  }
+  if (t.kind === 'tool_use') {
+    const res = result?.text || '';
+    const firstLines = res.split('\n').slice(0, 6).join('\n');
+    return (
+      <div className="py-0.5">
+        <div><span className="text-emerald-400">⏺ </span><span className="text-sky-300">{t.tool_name}</span><span className="text-slate-500">({compactArgs(t.tool_input)})</span></div>
+        {res && <div className="text-slate-500 pl-3 whitespace-pre-wrap">⎿ {firstLines}{res.split('\n').length > 6 ? '\n  …' : ''}</div>}
+      </div>
+    );
+  }
+  if (t.kind === 'tool_result') return null;
+  if (t.kind === 'system' || t.kind === 'meta') {
+    return <div className="text-slate-600 py-0.5 truncate">{t.kind === 'system' ? '⚙ ' : '↳ '}{(t.text || '').slice(0, 120)}</div>;
+  }
   // text
-  const isUser = t.role === 'user';
-  return (
-    <div className={`px-3 py-2 ${isUser ? 'bg-slate-50 dark:bg-slate-800/40' : ''}`}>
-      <div className="flex items-center gap-1.5 mb-1">
-        <AgentDot agent={t.agent} />
-        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-          {isUser ? 'operator' : t.agent}
-        </span>
-      </div>
-      <div className="text-[13px] text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-        {t.text}
-      </div>
-    </div>
-  );
+  if (t.role === 'user') {
+    return <div className="text-cyan-300 whitespace-pre-wrap py-0.5">❯ {t.text}</div>;
+  }
+  return <div className="text-slate-200 whitespace-pre-wrap py-0.5">{t.text}</div>;
 }
 
-export default function LiveTranscript({ sessionId, live }) {
+export default function LiveTranscript({ sessionId }) {
   const { getToken } = useAuth();
   const [turns, setTurns] = useState([]);
   const [status, setStatus] = useState('connecting');
@@ -63,29 +65,24 @@ export default function LiveTranscript({ sessionId, live }) {
 
   useEffect(() => {
     if (!sessionId) return;
-    setTurns([]);
-    setStatus('connecting');
-    let ws;
-    let closed = false;
+    setTurns([]); setStatus('connecting');
+    let ws, closed = false;
     (async () => {
       const token = await getToken().catch(() => null);
       if (closed) return;
-      // browsers can't set WS headers → admin token rides as ?token=<clerk jwt>
-      const url = wsUrl(sessionId) + (token ? `?token=${encodeURIComponent(token)}` : '');
-      ws = new WebSocket(url);
+      ws = new WebSocket(wsUrl(sessionId) + (token ? `?token=${encodeURIComponent(token)}` : ''));
       ws.onopen = () => setStatus('live');
       ws.onclose = () => setStatus('closed');
       ws.onerror = () => setStatus('error');
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.kind === 'snapshot') setTurns(msg.turns || []);
-        else if (msg.kind === 'append') setTurns((prev) => [...prev, ...(msg.turns || [])]);
+        else if (msg.kind === 'append') setTurns((p) => [...p, ...(msg.turns || [])]);
       };
     })();
     return () => { closed = true; if (ws) ws.close(); };
   }, [sessionId]);
 
-  // pair tool_result to its tool_use by tool_id
   const results = useMemo(() => {
     const m = {};
     for (const t of turns) if (t.kind === 'tool_result' && t.tool_id) m[t.tool_id] = t;
@@ -93,32 +90,21 @@ export default function LiveTranscript({ sessionId, live }) {
   }, [turns]);
 
   useEffect(() => {
-    if (atBottom.current && scrollRef.current)
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (atBottom.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [turns]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 text-[11px]">
-        <span className={`w-1.5 h-1.5 rounded-full ${status === 'live' ? 'bg-emerald-500 animate-pulse' : status === 'error' ? 'bg-rose-500' : 'bg-slate-400'}`} />
-        <span className="font-mono text-slate-500">{status}</span>
-        <span className="text-slate-400 ml-auto">{turns.length} turns</span>
-      </div>
-      <div
-        ref={scrollRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-        }}
-        className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60"
-      >
-        {turns.length === 0 && (
-          <div className="p-6 text-center text-slate-400 text-sm">waiting for transcript…</div>
-        )}
-        {turns.map((t, i) => (
-          <Turn key={t.uuid ? `${t.uuid}-${i}` : i} t={t} resultFor={t.kind === 'tool_use' ? results[t.tool_id] : null} />
-        ))}
-      </div>
+    <div
+      ref={scrollRef}
+      onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}
+      className="h-full overflow-y-auto bg-[#0d1117] text-[11px] leading-[1.45] font-mono px-3 py-2"
+    >
+      {turns.length === 0 && (
+        <div className="text-slate-600">{status === 'live' ? 'waiting for output…' : status}</div>
+      )}
+      {turns.map((t, i) => (
+        <Line key={t.uuid ? `${t.uuid}-${i}` : i} t={t} result={t.kind === 'tool_use' ? results[t.tool_id] : null} />
+      ))}
     </div>
   );
 }
