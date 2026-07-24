@@ -376,6 +376,31 @@ async def stream(ws: WebSocket, session_id: str, token: str = None):
     except WebSocketDisconnect:
         return
 
+
+import redis as _redis
+FALKOR_HOST = os.environ.get("FALKOR_HOST", "100.98.19.51")
+FALKOR_PORT = int(os.environ.get("FALKOR_PORT", "6379"))
+
+def _cortex_query(cypher):
+    r = _redis.Redis(host=FALKOR_HOST, port=FALKOR_PORT, socket_timeout=8)
+    res = r.execute_command("GRAPH.QUERY", "bastion", cypher)
+    return res[1]
+
+@app.get("/api/cortex/stats")
+def cortex_stats(authorization: str = Header(None)):
+    """Grandiose KG showcase: the sheer scale of the attack library, live from FalkorDB."""
+    require_admin(authorization)
+    try:
+        rows = _cortex_query("MATCH (n) RETURN labels(n)[0] AS t, count(n) AS c ORDER BY c DESC")
+        by = {}
+        for row in rows:
+            k = row[0].decode() if isinstance(row[0], bytes) else row[0]
+            by[k or "Node"] = row[1]
+        rel = _cortex_query("MATCH ()-[e]->() RETURN count(e)")[0][0]
+        return {"total": sum(by.values()), "relationships": rel, "byType": by}
+    except Exception as e:
+        raise HTTPException(503, f"cortex unreachable: {type(e).__name__}")
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "projects": str(PROJECTS), "sessions": len(list_sessions())}

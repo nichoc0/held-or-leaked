@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pulse, ClockCounterClockwise, Trophy, ShieldCheck, GearSix, List, X } from '@phosphor-icons/react';
+import { Pulse, ClockCounterClockwise, Trophy, ShieldCheck, GearSix, List, X, Graph } from '@phosphor-icons/react';
 import { useIsDev } from '../../store/audienceStore';
 import ExportMenu from './ExportMenu';
 
@@ -23,6 +23,7 @@ import ExportMenu from './ExportMenu';
 const primaryItems = [
     { id: 'current-runs',   label: 'Current Runs',   icon: Pulse },
     { id: 'past-runs',      label: 'Past Runs',      icon: ClockCounterClockwise },
+    { id: 'cortex',         label: 'Cortex',         icon: Graph },
     { id: 'evals',          label: 'Evals',          icon: Trophy },
     { id: 'posture-report', label: 'Posture Report', icon: ShieldCheck },
     { id: 'settings',       label: 'Settings',       icon: GearSix },
