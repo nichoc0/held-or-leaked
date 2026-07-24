@@ -255,13 +255,23 @@ def _infer_role(text: str) -> str:
     if any(k in t for k in ("attack", "exploit", "inject", "break", "hunt", "bypass")): return "attacker"
     return "attacker"
 
+SUBAGENT_TOOLS = ("Agent", "Task")           # the sub-agent spawn tools
+META_TOOLS = {"TaskCreate", "TaskUpdate", "TaskStop", "TaskGet", "TaskList", "TaskOutput",
+              "ToolSearch", "Skill", "AskUserQuestion", "SendMessage", "Monitor", "TodoWrite"}
+
+def _clean_tool(name: str) -> str:
+    if name and name.startswith("mcp__"):
+        parts = name.split("__")
+        return parts[-1] if len(parts) >= 3 else name
+    return name
+
 def _swarm_agents(turns: list) -> list:
-    """Derive the live agent tree from Task sub-agent calls in the transcript."""
+    """Derive the live agent tree from sub-agent spawn calls in the transcript."""
     agents = [{"id": "orch", "role": "orchestrator", "name": "Orchestrator", "parent": None,
                "at": 0, "summary": "plans, routes, runs the keep-going loop"}]
     idx = 0
     for i, t in enumerate(turns):
-        if t["kind"] == "tool_use" and t.get("tool_name") == "Task":
+        if t["kind"] == "tool_use" and t.get("tool_name") in SUBAGENT_TOOLS:
             idx += 1
             inp = t.get("tool_input") or ""
             if isinstance(inp, str):
@@ -283,7 +293,9 @@ def summary(session_id: str, authorization: str = Header(None)):
     if not p:
         raise HTTPException(404, "session not found")
     _, turns = read_turns(p, 0)
-    tools = sorted({t.get("tool_name") for t in turns if t["kind"] == "tool_use" and t.get("tool_name")})
+    tools = sorted({_clean_tool(t.get("tool_name")) for t in turns
+                    if t["kind"] == "tool_use" and t.get("tool_name")
+                    and t["tool_name"] not in META_TOOLS and t["tool_name"] not in SUBAGENT_TOOLS})
     swarm_agents = _swarm_agents(turns)
     # live activity graph: orchestrator -> spawned agents + used tools (grows as the run does)
     events = [{"node": "Run", "parent": None, "rel": None, "detail": "orchestrator", "kind": "recon"}]
