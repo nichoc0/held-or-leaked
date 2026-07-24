@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk-real';
 import LiveTranscript from './LiveTranscript';
 
 // LiveRunsView — the admin "every live claude transcript" surface. Left: the
@@ -11,10 +12,14 @@ export default function LiveRunsView() {
   const [sel, setSel] = useState(null);
   const [err, setErr] = useState(null);
 
+  const { getToken } = useAuth();
   const API = import.meta.env.VITE_API_URL || '';
   async function refresh() {
     try {
-      const r = await fetch(`${API}/api/sessions?scope=recent`);
+      const token = await getToken().catch(() => null);
+      const r = await fetch(`${API}/api/sessions?scope=recent`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const d = await r.json();
       setSessions(d.sessions || []);
       setErr(null);

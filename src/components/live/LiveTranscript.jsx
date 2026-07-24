@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { useAuth } from '@clerk-real';
 import { ThinkingBlock } from '../ui/ThinkingBlock';
 import { ToolCallCard } from '../ui/ToolCallCard';
 
@@ -54,6 +55,7 @@ function Turn({ t, resultFor }) {
 }
 
 export default function LiveTranscript({ sessionId, live }) {
+  const { getToken } = useAuth();
   const [turns, setTurns] = useState([]);
   const [status, setStatus] = useState('connecting');
   const scrollRef = useRef(null);
@@ -63,16 +65,24 @@ export default function LiveTranscript({ sessionId, live }) {
     if (!sessionId) return;
     setTurns([]);
     setStatus('connecting');
-    const ws = new WebSocket(wsUrl(sessionId));
-    ws.onopen = () => setStatus('live');
-    ws.onclose = () => setStatus('closed');
-    ws.onerror = () => setStatus('error');
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.kind === 'snapshot') setTurns(msg.turns || []);
-      else if (msg.kind === 'append') setTurns((prev) => [...prev, ...(msg.turns || [])]);
-    };
-    return () => ws.close();
+    let ws;
+    let closed = false;
+    (async () => {
+      const token = await getToken().catch(() => null);
+      if (closed) return;
+      // browsers can't set WS headers → admin token rides as ?token=<clerk jwt>
+      const url = wsUrl(sessionId) + (token ? `?token=${encodeURIComponent(token)}` : '');
+      ws = new WebSocket(url);
+      ws.onopen = () => setStatus('live');
+      ws.onclose = () => setStatus('closed');
+      ws.onerror = () => setStatus('error');
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.kind === 'snapshot') setTurns(msg.turns || []);
+        else if (msg.kind === 'append') setTurns((prev) => [...prev, ...(msg.turns || [])]);
+      };
+    })();
+    return () => { closed = true; if (ws) ws.close(); };
   }, [sessionId]);
 
   // pair tool_result to its tool_use by tool_id
