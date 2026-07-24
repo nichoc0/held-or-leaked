@@ -8,15 +8,18 @@ import RunView from '../clip/RunView';
 // RunView, not the whole view.
 
 function toRun(s, sum) {
+  const swarmAgents = sum?.swarmAgents || [{ id: 'orch', role: 'orchestrator', name: 'Orchestrator', parent: null, at: 0, summary: 'plans and routes' }];
   return {
     id: s.id,
     sessionId: s.id,
+    isMaster: s.master,
     name: s.master ? 'masternicho' : s.name,
     surface: s.cwd || '',
     verdict: s.live ? 'running' : 'idle',
     turns: sum?.turns || 0,
-    agents: Array.from({ length: sum?.agents || 1 }, (_, i) => ({ name: i === 0 ? 'orchestrator' : `agent ${i}`, color: '#64748b' })),
-    tools: sum?.tools || [],
+    agents: swarmAgents,
+    swarmAgents,
+    tools: (sum?.tools || []).map((t) => ({ name: t, service: t })),
     findings: [],
   };
 }

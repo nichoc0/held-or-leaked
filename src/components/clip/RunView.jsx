@@ -28,9 +28,13 @@ const BASE_WIDGETS = [
 
 export default function RunView({ live = true, activeRun = null, summary = null }) {
   const [openId, setOpenId] = useState(null);
-  const WIDGETS = summary?.sessionId
-    ? [{ id: 'transcript', title: 'Transcript', icon: Terminal, Page: TranscriptPage }, ...BASE_WIDGETS]
-    : BASE_WIDGETS;
+  const transcriptTile = { id: 'transcript', title: 'Transcript', icon: Terminal, Page: TranscriptPage };
+  // masternicho = the master orchestrator, not an engagement → transcript only.
+  const WIDGETS = summary?.isMaster
+    ? [transcriptTile]
+    : summary?.sessionId
+      ? [transcriptTile, ...BASE_WIDGETS]
+      : BASE_WIDGETS;
   const active = WIDGETS.find((w) => w.id === openId);
 
   if (active) {

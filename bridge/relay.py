@@ -247,20 +247,49 @@ def history(session_id: str, limit: int = 400, authorization: str = Header(None)
     _, turns = read_turns(p, 0)
     return {"id": session_id, "turns": turns[-limit:], "total": len(turns)}
 
+def _infer_role(text: str) -> str:
+    t = (text or "").lower()
+    if any(k in t for k in ("recon", "map", "enumerate", "scout", "discover")): return "recon"
+    if any(k in t for k in ("verify", "adjudicat", "confirm", "triage")): return "verifier"
+    if any(k in t for k in ("research", "study", "read", "corpus", "docs")): return "researcher"
+    if any(k in t for k in ("attack", "exploit", "inject", "break", "hunt", "bypass")): return "attacker"
+    return "attacker"
+
+def _swarm_agents(turns: list) -> list:
+    """Derive the live agent tree from Task sub-agent calls in the transcript."""
+    agents = [{"id": "orch", "role": "orchestrator", "name": "Orchestrator", "parent": None,
+               "at": 0, "summary": "plans, routes, runs the keep-going loop"}]
+    idx = 0
+    for i, t in enumerate(turns):
+        if t["kind"] == "tool_use" and t.get("tool_name") == "Task":
+            idx += 1
+            inp = t.get("tool_input") or ""
+            if isinstance(inp, str):
+                try:
+                    inp = json.loads(inp)
+                except Exception:
+                    inp = {"description": inp}
+            desc = (inp.get("description") or inp.get("subagent_type") or "subagent")[:60]
+            role = _infer_role(f"{inp.get('subagent_type','')} {desc}")
+            agents.append({"id": f"task-{idx}", "role": role, "name": desc[:22],
+                           "parent": "orch", "at": i, "summary": desc})
+    return agents
+
 @app.get("/api/sessions/{session_id}/summary")
 def summary(session_id: str, authorization: str = Header(None)):
-    """Derived per-engagement stats for the RunView exec-summary + cards."""
+    """Derived per-engagement stats + agent tree for the RunView exec-summary + widgets."""
     require_admin(authorization)
     p = _find(session_id)
     if not p:
         raise HTTPException(404, "session not found")
     _, turns = read_turns(p, 0)
     tools = sorted({t.get("tool_name") for t in turns if t["kind"] == "tool_use" and t.get("tool_name")})
-    subagents = sum(1 for t in turns if t["kind"] == "tool_use" and t.get("tool_name") == "Task")
+    swarm_agents = _swarm_agents(turns)
     return {
         "turns": len(turns),
         "tools": tools,
-        "agents": max(1, subagents + 1),   # orchestrator + spawned subagents
+        "swarmAgents": swarm_agents,
+        "agents": len(swarm_agents),
         "tool_calls": sum(1 for t in turns if t["kind"] == "tool_use"),
         "thinking": sum(1 for t in turns if t["kind"] == "thinking"),
     }
