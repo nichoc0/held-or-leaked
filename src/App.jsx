@@ -10,6 +10,7 @@ import StartRun from './components/clip/StartRun';
 import EvalsView from './components/clip/EvalsView';
 import PostureReportView from './components/clip/PostureReportView';
 import SettingsView from './components/clip/SettingsView';
+import LiveRunsView from './components/live/LiveRunsView';
 
 // clip — clean-slate dashboard.
 // The staging.demo shell (sidebar + topbar + main card) kept intact; every
@@ -75,26 +76,7 @@ export default function App() {
             ) : currentView === 'past-runs' ? (
               <PastRunsView />
             ) : (
-              <div className="relative">
-                <div className="blur-[3px] pointer-events-none select-none opacity-60">
-                  {activeRun ? (
-                    <div className="flex items-center gap-3 mb-6 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] px-4 h-12">
-                      <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 pulse-dot" /><span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" /></span>
-                      <span className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">{activeRun.name}</span>
-                      <span className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">{activeRun.platform} · running</span>
-                    </div>
-                  ) : (
-                    <StartRun onStart={setActiveRun} />
-                  )}
-                  <RunView key={activeRun ? activeRun.name : 'idle'} live activeRun={activeRun} />
-                </div>
-                <div className="absolute inset-0 flex items-start justify-center pt-24">
-                  <div className="border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-sm px-5 py-3 text-center shadow-sm">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Work in progress</div>
-                    <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">Live run spawning is being wired to the engine.</div>
-                  </div>
-                </div>
-              </div>
+              <LiveRunsView />
             )}
           </div>
         </section>

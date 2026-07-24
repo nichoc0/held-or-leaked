@@ -169,7 +169,16 @@ function healthPlugin() {
 export default defineConfig({
   plugins: [react(), tailwindcss(), healthPlugin()],
   base: '/',
-  server: { port: 5180, host: true },
+  server: {
+    port: 5180,
+    host: true,
+    // route the control-plane relay (live transcripts) to bridge/relay.py; ws:true
+    // upgrades the /api/sessions/<id>/stream WebSocket. Other /api/* stay on the
+    // configureServer middleware above.
+    proxy: {
+      '/api/sessions': { target: 'http://127.0.0.1:8477', changeOrigin: true, ws: true },
+    },
+  },
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
