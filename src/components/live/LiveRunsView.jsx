@@ -20,6 +20,11 @@ export default function LiveRunsView() {
       const r = await fetch(`${API}/api/sessions?scope=recent`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+      if (!r.ok) {
+        setErr(`relay ${r.status}${!token ? ' — no token from Clerk' : r.status === 403 ? ' — not an admin' : r.status === 401 ? ' — token rejected' : ''}`);
+        setSessions([]);
+        return;
+      }
       const d = await r.json();
       setSessions(d.sessions || []);
       setErr(null);
