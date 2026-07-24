@@ -1,9 +1,7 @@
-// The Held-or-Leaked Weave evaluation, surfaced in the dashboard. Real results
-// from harness/eval.py (logged to W&B, org ncharland-ieee-concordia). Vectors
-// anonymized to technique + OWASP class.
-export const WEAVE = {
-  leaderboard: 'https://wandb.ai/ncharland-ieee-concordia/bastion-held-or-leaked/weave/leaderboards/held-or-leaked',
-  project: 'https://wandb.ai/ncharland-ieee-concordia/bastion-held-or-leaked/weave',
+// The leak-resistance evaluation, surfaced in the dashboard. Real results from
+// harness/eval.py. Vectors anonymized to technique + OWASP class.
+export const LEADERBOARD = {
+  url: 'https://bastion.pistonsolutions.ai',
 };
 
 export const AGENTS = [

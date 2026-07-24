@@ -173,6 +173,10 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
     alias: {
+      // The whole dashboard runs on the demo-operator shim. The login gate
+      // imports the REAL Clerk via this second alias so it can actually gate
+      // without disturbing the 40+ shim call sites underneath it.
+      '@clerk-real': fileURLToPath(new URL('./node_modules/@clerk/clerk-react', import.meta.url)),
       '@clerk/clerk-react': fileURLToPath(new URL('./src/lib/clerk-shim.jsx', import.meta.url)),
     },
   },

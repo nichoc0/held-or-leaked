@@ -37,7 +37,7 @@ function Node({ a, pos, on, isNew }) {
   );
 }
 
-function Radial({ t }) {
+function Radial({ t, agents = PENNY_AGENTS }) {
   const ref = useRef(null);
   const [d, setD] = useState({ w: 800, h: 520 });
   useEffect(() => {
@@ -47,26 +47,36 @@ function Radial({ t }) {
   }, []);
 
   const placed = useMemo(() => {
-    const byId = Object.fromEntries(PENNY_AGENTS.map((a) => [a.id, a]));
-    const depthOf = (a) => { let n = 0, p = a.parent; while (p) { n++; p = byId[p]?.parent; } return n; };
     const cx = d.w / 2, cy = d.h / 2;
-    const R1 = Math.min(d.w, d.h) * 0.34, R2 = Math.min(d.w, d.h) * 0.62;
-    const d1 = PENNY_AGENTS.filter((a) => depthOf(a) === 1);
-    const ang = {};
+    const root = agents.find((a) => a.role === 'orchestrator') || agents[0];
+    const others = agents.filter((a) => a !== root).slice().sort((a, b) => (a.at || 0) - (b.at || 0));
     const pos = {};
-    pos.orch = { x: cx, y: cy };
-    d1.forEach((a, i) => { const th = -Math.PI / 2 + (i / d1.length) * Math.PI * 2; ang[a.id] = th; pos[a.id] = { x: cx + Math.cos(th) * R1, y: cy + Math.sin(th) * R1 }; });
-    PENNY_AGENTS.filter((a) => depthOf(a) === 2).forEach((a) => { const th = ang[a.parent] ?? 0; ang[a.id] = th; pos[a.id] = { x: cx + Math.cos(th) * R2, y: cy + Math.sin(th) * R2 }; });
-    return { pos, list: PENNY_AGENTS.map((a) => ({ a, depth: depthOf(a) })) };
-  }, [d]);
+    if (root) pos[root.id] = { x: cx, y: cy };
+    // Two elliptical rings that use the full (wide) card so 20 nodes get room.
+    // Inner ring is the smaller half; outer ring is offset half a slot so the
+    // two rings interleave instead of lining up radially.
+    const rings = [
+      { rx: d.w * 0.21, ry: d.h * 0.28, off: 0 },
+      { rx: d.w * 0.40, ry: d.h * 0.46, off: 0.5 },
+    ];
+    const innerCount = Math.min(others.length, Math.ceil(others.length * 0.42));
+    const groups = [others.slice(0, innerCount), others.slice(innerCount)];
+    groups.forEach((grp, ri) => {
+      const ring = rings[ri] || rings[rings.length - 1];
+      grp.forEach((a, i) => {
+        const th = -Math.PI / 2 + ((i + ring.off) / grp.length) * Math.PI * 2;
+        pos[a.id] = { x: cx + Math.cos(th) * ring.rx, y: cy + Math.sin(th) * ring.ry };
+      });
+    });
+    return { pos, rootId: root && root.id, list: agents.map((a) => ({ a, depth: a === root ? 0 : 1 })) };
+  }, [d, agents]);
 
-  const byId = Object.fromEntries(PENNY_AGENTS.map((a) => [a.id, a]));
   return (
-    <div ref={ref} className="relative w-full" style={{ height: 520 }}>
+    <div ref={ref} className="relative w-full" style={{ height: 680 }}>
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        {placed.list.filter(({ a }) => a.parent && a.at <= t).map(({ a }) => {
-          const p = placed.pos[a.parent], c = placed.pos[a.id]; if (!p || !c) return null;
-          return <line key={a.id} x1={p.x} y1={p.y} x2={c.x} y2={c.y} stroke="rgba(100,116,139,0.3)" strokeWidth="1" />;
+        {placed.list.filter(({ a }) => a.id !== placed.rootId && a.at <= t).map(({ a }) => {
+          const p = placed.pos[placed.rootId], c = placed.pos[a.id]; if (!p || !c) return null;
+          return <line key={a.id} x1={p.x} y1={p.y} x2={c.x} y2={c.y} stroke="rgba(100,116,139,0.22)" strokeWidth="1" />;
         })}
       </svg>
       {placed.list.map(({ a }) => <Node key={a.id} a={a} pos={placed.pos[a.id]} on={a.at <= t} isNew={a.at === t} />)}
@@ -74,11 +84,13 @@ function Radial({ t }) {
   );
 }
 
-export function AgentsPage({ live = true }) {
-  const maxAt = useMemo(() => Math.max(...PENNY_AGENTS.map((a) => a.at)), []);
+export function AgentsPage({ live = true, summary = null }) {
+  // Per-run swarm with fallback to the Penny (default) agents.
+  const AGENTS = summary?.swarmAgents ?? PENNY_AGENTS;
+  const maxAt = useMemo(() => Math.max(...AGENTS.map((a) => a.at)), [AGENTS]);
   const pb = usePlayback(maxAt, { startAtEnd: true });
-  const spawned = PENNY_AGENTS.filter((a) => a.at <= pb.t).length;
-  const attackers = PENNY_AGENTS.filter((a) => a.role === 'attacker').length;
+  const spawned = AGENTS.filter((a) => a.at <= pb.t).length;
+  const attackers = AGENTS.filter((a) => a.role === 'attacker').length;
 
   if (live) {
     return (
@@ -98,11 +110,11 @@ export function AgentsPage({ live = true }) {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-2">
-        <p className="text-[13px] text-slate-500 dark:text-slate-400">{PENNY_AGENTS.length} agents diverging from the orchestrator</p>
+        <p className="text-[13px] text-slate-500 dark:text-slate-400">{AGENTS.length} agents diverging from the orchestrator</p>
         <span className="font-tech text-[10px] text-slate-400 dark:text-slate-500 inline-flex items-center gap-1.5"><span className="inline-block w-[2px] h-3 bg-red-500 align-middle" /> attacker · {attackers}</span>
       </div>
       <div className="border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40 overflow-hidden">
-        <Radial t={pb.t} />
+        <Radial t={pb.t} agents={AGENTS} />
         <div className="border-t border-slate-200 dark:border-slate-800 py-2 px-2"><Playback pb={pb} label={(tt) => `${spawned} agent${spawned === 1 ? '' : 's'} · t${tt}/${pb.max}`} /></div>
       </div>
     </div>

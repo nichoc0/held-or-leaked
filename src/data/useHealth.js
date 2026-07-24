@@ -39,14 +39,25 @@ export function useLogs(service, { live = true, intervalMs = 4000 } = {}) {
     let timer = null;
     setState((s) => ({ ...s, loading: true }));
 
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    const loadSnapshot = () =>
+      fetch(`${base}/static-api/logs/${encodeURIComponent(service)}.json`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no snapshot'))))
+        .then((d) => { if (!cancelled) setState({ lines: d.lines || [], source: d.source || null, loading: false, error: null }); })
+        // No live backend AND no bundled snapshot (e.g. redis/frida on the
+        // static demo). Degrade to a clean no-source state, not an HTTP error.
+        .catch(() => { if (!cancelled) setState({ lines: [], source: null, loading: false, error: null }); });
+
     const tick = async () => {
       try {
         const res = await fetch(`/api/logs?service=${encodeURIComponent(service)}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (!cancelled) setState({ lines: data.lines || [], source: data.source, loading: false, error: null });
-      } catch (e) {
-        if (!cancelled) setState((s) => ({ ...s, loading: false, error: e.message }));
+        const lines = data.lines || [];
+        if (!data.source || lines.length === 0) { await loadSnapshot(); return; }
+        if (!cancelled) setState({ lines, source: data.source, loading: false, error: null });
+      } catch {
+        await loadSnapshot();
       }
     };
 

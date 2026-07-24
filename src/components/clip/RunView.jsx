@@ -24,7 +24,7 @@ export default function RunView({ live = true, activeRun = null, summary = null 
     const Page = active.Page;
     return (
       <WidgetPage title={active.title} onBack={() => setOpenId(null)}>
-        <Page live={live} activeRun={activeRun} />
+        <Page live={live} activeRun={activeRun} summary={summary} />
       </WidgetPage>
     );
   }

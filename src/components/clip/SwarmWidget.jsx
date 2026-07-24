@@ -12,7 +12,7 @@ import AgentChat from './AgentChat';
 //   Past Runs: faithful replay — nodes appear as they were found and the swarm
 //     retraces exactly where it went, on the shared playback clock.
 
-const TARGETS = [
+const DEFAULT_TARGETS = [
   { id: 'terms-chat',      label: 'terms-chat' },
   { id: 'getOfferDetails', label: 'getOfferDetails' },
   { id: 'genai-svc',       label: 'genai-svc realtime' },
@@ -22,17 +22,16 @@ const TARGETS = [
 // agent turns, not 16). Static, not re-rolled per render. The Priceline campaign
 // ran 142 turns; events land on the real Penny endpoints and the swarm explores
 // the turns in between.
-const CAMPAIGN_TURNS = 142;
-const PENNY_PATH = [
+const DEFAULT_CAMPAIGN_TURNS = 142;
+const DEFAULT_PATH = [
   { at: 4,   target: 'terms-chat',      leaked: false },  // scoped sub-bot found in recon
   { at: 26,  target: 'getOfferDetails', leaked: true },   // GraphQL BOLA
   { at: 62,  target: 'genai-svc',       leaked: true },   // unauth realtime + forged token + injection
   { at: 90,  target: 'terms-chat',      leaked: true },   // verbatim system-prompt extraction
   { at: 140, target: 'maps-key',        leaked: true },   // unrestricted Google Maps key in the APK
 ];
-const PATH_MAX = CAMPAIGN_TURNS;
 
-function SwarmCanvas({ ctrl, interact }) {
+function SwarmCanvas({ ctrl, interact, targets = DEFAULT_TARGETS }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const S = useRef({ boids: [], nodes: new Map(), center: { x: 0, y: 0 }, dims: null, selected: null });
@@ -44,7 +43,7 @@ function SwarmCanvas({ ctrl, interact }) {
       const r = e[0]?.contentRect; if (!r) return;
       canvas.width = r.width * dpr; canvas.height = r.height * dpr; canvas.style.width = `${r.width}px`; canvas.style.height = `${r.height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); st.dims = { w: r.width, h: r.height }; st.center = { x: r.width / 2, y: r.height / 2 };
-      TARGETS.forEach((t, i) => { const ang = (i / TARGETS.length) * Math.PI * 2 - Math.PI / 2; const rad = Math.min(r.width, r.height) * 0.3; st.nodes.set(t.id, { x: r.width / 2 + Math.cos(ang) * rad, y: r.height / 2 + Math.sin(ang) * rad, label: t.label }); });
+      targets.forEach((t, i) => { const ang = (i / targets.length) * Math.PI * 2 - Math.PI / 2; const rad = Math.min(r.width, r.height) * 0.3; st.nodes.set(t.id, { x: r.width / 2 + Math.cos(ang) * rad, y: r.height / 2 + Math.sin(ang) * rad, label: t.label }); });
     });
     ro.observe(wrapRef.current);
 
@@ -142,7 +141,7 @@ function SwarmCanvas({ ctrl, interact }) {
     };
     raf = requestAnimationFrame(step);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); canvas.removeEventListener('click', onClick); };
-  }, [ctrl, interact]);
+  }, [ctrl, interact, targets]);
 
   return <div ref={wrapRef} className="absolute inset-0"><canvas ref={canvasRef} className="absolute inset-0" /></div>;
 }
@@ -163,9 +162,16 @@ function ControlBar({ count, redirecting, onRedirect, onStop, onSpawn, onRecall 
   );
 }
 
-export function SwarmPage({ live = true, activeRun = null }) {
+export function SwarmPage({ live = true, activeRun = null, summary = null }) {
+  // Per-run replay payload with fallback to the Penny (default) constants, so
+  // other runs are untouched.
+  const TARGETS = summary?.swarm?.targets ?? DEFAULT_TARGETS;
+  const PENNY_PATH = summary?.swarm?.path ?? DEFAULT_PATH;
+  const CAMPAIGN_TURNS = summary?.swarm?.campaignTurns ?? DEFAULT_CAMPAIGN_TURNS;
+  const PATH_MAX = CAMPAIGN_TURNS;
+
   const [mode, setMode] = useState('attacking');
-  const [activeId, setActiveId] = useState(TARGETS[1].id);
+  const [activeId, setActiveId] = useState(TARGETS[1]?.id ?? TARGETS[0].id);
   const [count, setCount] = useState(8);
   const [redirecting, setRedirecting] = useState(false);
   const pb = usePlayback(PATH_MAX, { startAtEnd: true, stepMs: 130 });
@@ -219,11 +225,11 @@ export function SwarmPage({ live = true, activeRun = null }) {
         <div className="border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40">
           <div className="flex flex-col lg:flex-row">
             <div className={`relative flex-1 min-w-0 ${redirecting ? 'cursor-crosshair' : ''}`} style={{ height: 460 }}>
-              <SwarmCanvas ctrl={ctrl} interact={interact} />
+              <SwarmCanvas ctrl={ctrl} interact={interact} targets={TARGETS} />
               {mode === 'thinking' && <div className="absolute left-1/2 -translate-x-1/2 bottom-5 glass-soft px-3 py-1.5 text-[11px] text-slate-600 dark:text-slate-300 font-tech pointer-events-none">regrouping · agents talking · spawning research</div>}
             </div>
             <div className="w-full lg:w-[380px] shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]" style={{ height: 460 }}>
-              <AgentChat t={pb.t} />
+              <AgentChat t={pb.t} channels={summary?.chat?.channels} agents={summary?.chat?.agents} />
             </div>
           </div>
           <div className="border-t border-slate-200 dark:border-slate-800 py-2 px-2"><Playback pb={pb} label={(tt) => `t${tt}/${pb.max}`} /></div>
@@ -245,7 +251,7 @@ export function SwarmPage({ live = true, activeRun = null }) {
     return (
       <div>
         <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-2">No active run. The swarm is idle.</p>
-        <div className="relative border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40" style={{ height: 460 }}><SwarmCanvas ctrl={ctrl} interact={interact} /></div>
+        <div className="relative border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40" style={{ height: 460 }}><SwarmCanvas ctrl={ctrl} interact={interact} targets={TARGETS} /></div>
       </div>
     );
   }
@@ -258,7 +264,7 @@ export function SwarmPage({ live = true, activeRun = null }) {
         <p className="text-[13px] text-slate-500 dark:text-slate-400">{redirecting ? 'Click a found node to send the swarm there.' : <>Swarm · <span className="font-tech text-[12px] text-slate-600 dark:text-slate-300">{modeLabel}</span></>}</p>
       </div>
       <div className={`relative border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40 ${redirecting ? 'cursor-crosshair' : ''}`} style={{ height: 460 }}>
-        <SwarmCanvas ctrl={ctrl} interact={interact} />
+        <SwarmCanvas ctrl={ctrl} interact={interact} targets={TARGETS} />
         {mode === 'thinking' && <div className="absolute left-1/2 -translate-x-1/2 bottom-5 glass-soft px-3 py-1.5 text-[11px] text-slate-600 dark:text-slate-300 font-tech pointer-events-none">regrouping · agents talking · spawning research</div>}
       </div>
       <ControlBar

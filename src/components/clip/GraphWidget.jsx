@@ -12,19 +12,21 @@ import { PENNY_EVENTS } from '../../data/pennyAssessment';
 //                run with the SAME playback scrubber as the Agents tab (same `at`
 //                clock), so you can replay the graph assembling. Important nodes
 //                feed back into FalkorDB.
-export function GraphPage({ live = true }) {
+export function GraphPage({ live = true, summary = null }) {
+  // Per-run event stream with fallback to the Penny (default) events.
+  const EVENTS = summary?.events ?? PENNY_EVENTS;
   const [mode, setMode] = useState('assessment');
   const [committed, setCommitted] = useState(null);
   const global = useGlobalGraph();
-  const pb = usePlayback(PENNY_EVENTS.length, { startAtEnd: true });
+  const pb = usePlayback(EVENTS.length, { startAtEnd: true });
 
   // assessment triples revealed up to the playback cursor (empty on a live/no run)
-  const revealed = live ? [] : PENNY_EVENTS.slice(0, pb.t);
+  const revealed = live ? [] : EVENTS.slice(0, pb.t);
   const triples = useMemo(
     () => revealed.filter((e) => e.parent).map((e) => ({ h: e.parent, r: e.rel, t: e.node, source: 'live' })),
     [revealed],
   );
-  const latestKey = pb.t > 0 && !live ? PENNY_EVENTS[pb.t - 1]?.node : null;
+  const latestKey = pb.t > 0 && !live ? EVENTS[pb.t - 1]?.node : null;
 
   const commit = async () => {
     const important = revealed.filter((e) => e.important);
@@ -44,7 +46,7 @@ export function GraphPage({ live = true }) {
           {mode === 'global'
             ? global.loading ? 'Loading the FalkorDB cortex…' : `${global.triples.length} relations across the cortex.`
             : live ? 'No active run. Nothing is being assessed right now.'
-              : `Assessment. ${PENNY_EVENTS.length} events. Scrub to replay the graph assembling.`}
+              : `Assessment. ${EVENTS.length} events. Scrub to replay the graph assembling.`}
         </p>
         <div className="inline-flex items-stretch border border-slate-300 dark:border-slate-700 rounded-none overflow-hidden shrink-0">
           {['global', 'assessment'].map((m) => (

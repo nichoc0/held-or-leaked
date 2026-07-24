@@ -15,5 +15,5 @@ export const TOOLS = [
   { service: 'frida',         label: 'frida-server',  note: 'mobile RASP bypass',       icon: DeviceMobile },
   { service: 'ghidra',        label: 'Ghidra MCP',    note: 'binary RE + decompiler',   icon: Code },
   { service: 'ollama',        label: 'Ollama',        note: 'local fallback brain',     icon: Cpu },
-  { service: 'weave',         label: 'Weave',         note: 'traces + leaderboard',     icon: Eye },
+  { service: 'wrap',         label: 'wrap()',        note: 'runtime traces',          icon: Eye },
 ];

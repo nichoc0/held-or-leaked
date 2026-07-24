@@ -76,7 +76,7 @@ export default function ExportMenu({ setCurrentView }) {
           />
         </div>
         <span className="text-slate-800 dark:text-slate-100 font-bold tracking-tight text-lg flex items-center gap-1">
-          clip <CaretDown size={12} weight="bold" className="text-slate-500 dark:text-slate-400" />
+          bastion <CaretDown size={12} weight="bold" className="text-slate-500 dark:text-slate-400" />
         </span>
       </button>
 

@@ -9,25 +9,25 @@ import { CHANNELS, CHAT_AGENTS } from '../../data/agentChat';
 // in lockstep with the swarm. Identity = a colored dot; a leak is a quiet blue
 // spine, not a badge. Mono only for timestamps.
 
-function Dot({ id, size = 7 }) {
-  const a = CHAT_AGENTS[id];
+function Dot({ id, size = 7, agents = CHAT_AGENTS }) {
+  const a = agents[id] || {};
   if (a.hub) return <span className="rounded-full bg-slate-900 dark:bg-slate-100 shrink-0" style={{ width: size, height: size }} />;
   return <span className="rounded-full shrink-0" style={{ width: size, height: size, background: a.color }} />;
 }
 
-function renderText(text) {
+function renderText(text, agents = CHAT_AGENTS) {
   return text.split(/(@[a-z·]+)/gi).map((part, i) => {
     if (part.startsWith('@')) {
       const key = part.slice(1);
-      const ag = Object.values(CHAT_AGENTS).find((a) => a.short === key);
+      const ag = Object.values(agents).find((a) => a.short === key);
       return <span key={i} style={{ color: ag?.color || '#64748b' }} className="font-medium">{part}</span>;
     }
     return <span key={i}>{part}</span>;
   });
 }
 
-function Message({ m }) {
-  const a = CHAT_AGENTS[m.from];
+function Message({ m, agents = CHAT_AGENTS }) {
+  const a = agents[m.from] || {};
   const handoff = m.kind === 'handoff';
   return (
     <motion.div
@@ -36,21 +36,21 @@ function Message({ m }) {
       style={m.leak ? { boxShadow: 'inset 2px 0 0 #1d4ed8' } : undefined}
     >
       <div className="flex items-center gap-1.5">
-        <Dot id={m.from} />
+        <Dot id={m.from} agents={agents} />
         <span className="text-[11.5px] font-semibold text-slate-700 dark:text-slate-200">{a.name}</span>
         {handoff && (
           <span className="inline-flex items-center gap-0.5 text-[9px] text-slate-400 dark:text-slate-500">
-            <ArrowBendDownRight size={9} weight="bold" />{CHAT_AGENTS[m.to]?.short ?? m.to}
+            <ArrowBendDownRight size={9} weight="bold" />{agents[m.to]?.short ?? m.to}
           </span>
         )}
         <span className="ml-auto font-tech text-[9px] text-slate-300 dark:text-slate-600 tabular-nums">t{m.at}</span>
       </div>
-      <p className="text-[12px] leading-snug text-slate-600 dark:text-slate-300 mt-0.5 pl-[13px]">{renderText(m.text)}</p>
+      <p className="text-[12px] leading-snug text-slate-600 dark:text-slate-300 mt-0.5 pl-[13px]">{renderText(m.text, agents)}</p>
     </motion.div>
   );
 }
 
-function Channel({ ch, t, open, onToggle }) {
+function Channel({ ch, t, open, onToggle, agents = CHAT_AGENTS }) {
   const shown = ch.messages.filter((m) => m.at <= t);
   const last = shown[shown.length - 1];
   const pinging = last && last.at === t && t > 0;
@@ -66,7 +66,7 @@ function Channel({ ch, t, open, onToggle }) {
           {ch.kind === 'main' ? ch.name : `#${ch.name}`}
         </span>
         <span className="flex items-center gap-1 ml-1.5 shrink-0">
-          {ch.participants.map((p) => <Dot key={p} id={p} size={6} />)}
+          {ch.participants.map((p) => <Dot key={p} id={p} size={6} agents={agents} />)}
         </span>
         <span className="ml-auto flex items-center gap-2 shrink-0">
           {ch.cid && <span className="font-tech text-[9px] text-slate-300 dark:text-slate-600 hidden sm:inline">{ch.cid}</span>}
@@ -79,7 +79,7 @@ function Channel({ ch, t, open, onToggle }) {
         {open && shown.length > 0 && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
             <div className="pb-1">
-              {shown.map((m, i) => <Message key={i} m={m} />)}
+              {shown.map((m, i) => <Message key={i} m={m} agents={agents} />)}
             </div>
           </motion.div>
         )}
@@ -88,7 +88,11 @@ function Channel({ ch, t, open, onToggle }) {
   );
 }
 
-export default function AgentChat({ t }) {
+export default function AgentChat({ t, channels, agents }) {
+  // Per-run channels/agents with fallback to the imported Penny defaults, so
+  // other runs are untouched.
+  const CH = channels ?? CHANNELS;
+  const AG = agents ?? CHAT_AGENTS;
   const [open, setOpen] = useState({ main: true });
   const scrollRef = useRef(null);
 
@@ -97,7 +101,7 @@ export default function AgentChat({ t }) {
   useEffect(() => {
     setOpen((prev) => {
       let next = prev;
-      for (const ch of CHANNELS) {
+      for (const ch of CH) {
         if (ch.messages.some((m) => m.at === t) && !prev[ch.id]) {
           if (next === prev) next = { ...prev };
           next[ch.id] = true;
@@ -105,14 +109,14 @@ export default function AgentChat({ t }) {
       }
       return next;
     });
-  }, [t]);
+  }, [t, CH]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [t, open]);
 
-  const total = CHANNELS.reduce((n, ch) => n + ch.messages.filter((m) => m.at <= t).length, 0);
+  const total = CH.reduce((n, ch) => n + ch.messages.filter((m) => m.at <= t).length, 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -121,8 +125,8 @@ export default function AgentChat({ t }) {
         <span className="ml-auto font-tech text-[10px] text-slate-300 dark:text-slate-600 tabular-nums">{total}</span>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {CHANNELS.map((ch) => (
-          <Channel key={ch.id} ch={ch} t={t} open={!!open[ch.id]} onToggle={() => setOpen((p) => ({ ...p, [ch.id]: !p[ch.id] }))} />
+        {CH.map((ch) => (
+          <Channel key={ch.id} ch={ch} t={t} agents={AG} open={!!open[ch.id]} onToggle={() => setOpen((p) => ({ ...p, [ch.id]: !p[ch.id] }))} />
         ))}
       </div>
     </div>

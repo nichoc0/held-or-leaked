@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
 import { ArrowUpRight } from '@phosphor-icons/react';
-import { WEAVE, AGENTS, VECTORS } from '../../data/evals';
+import { LEADERBOARD, AGENTS, VECTORS } from '../../data/evals';
 
-// Evals — a ranked leaderboard in the spirit of the W&B Weave UI. Mono is
-// reserved for actual data (percentages, counts, OWASP codes); everything
-// else is clean sans. Blue = held metric; the vulnerable model ranks last.
+// Evals — a ranked leak-resistance leaderboard. Mono is reserved for actual
+// data (percentages, counts, OWASP codes); everything else is clean sans.
+// Blue = held metric; the vulnerable model ranks last.
 
 const heldPct = (a) => Math.round((a.held / a.total) * 100);
 const GOLD = '#facc15';
@@ -35,8 +35,8 @@ export function EvalsPage() {
       <div className="flex items-center gap-2 mb-2.5">
         <span className="inline-block w-2 h-2 rounded-full" style={{ background: GOLD }} />
         <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200">Leaderboard</span>
-        <span className="font-tech text-[11px] text-slate-400 dark:text-slate-500">held_or_leaked</span>
-        <a href={WEAVE.leaderboard} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">open in Weave <ArrowUpRight size={12} weight="bold" /></a>
+        <span className="font-tech text-[11px] text-slate-400 dark:text-slate-500">leak_resistance</span>
+        <a href={LEADERBOARD.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">open leaderboard <ArrowUpRight size={12} weight="bold" /></a>
       </div>
       <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-[#0f172a]">
         <div className="grid grid-cols-[40px_1fr_180px_70px_80px] items-center px-4 h-9 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-[12px] text-slate-400 dark:text-slate-500">
@@ -80,7 +80,7 @@ export function EvalsPage() {
       <div className="flex items-center gap-4 mt-3 text-[12px] text-slate-400 dark:text-slate-500">
         <span><span className="inline-block w-2 h-2 rounded-[2px] bg-blue-700 dark:bg-blue-500 align-middle mr-1.5" />leaked</span>
         <span><span className="inline-block w-2 h-2 rounded-[2px] border border-blue-300 dark:border-blue-700 align-middle mr-1.5" />held</span>
-        <a href={WEAVE.project} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">every probe + grade traced in Weave <ArrowUpRight size={12} weight="bold" /></a>
+        <a href={LEADERBOARD.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">every probe + grade traced in the harness <ArrowUpRight size={12} weight="bold" /></a>
       </div>
     </div>
   );

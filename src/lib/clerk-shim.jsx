@@ -1,4 +1,4 @@
-// Clerk shim — the WeaveHacks "Held or Leaked" fork doesn't use auth.
+// Clerk shim — the dashboard does not use auth.
 // staging.demo's Clerk pk_live key is domain-locked and 400s on localhost,
 // which blanks the whole app. We alias `@clerk/clerk-react` to this shim in
 // vite.config so every component keeps its imports unchanged but resolves to

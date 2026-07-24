@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pulse, ClockCounterClockwise, Trophy, List, X } from '@phosphor-icons/react';
+import { Pulse, ClockCounterClockwise, Trophy, ShieldCheck, GearSix, List, X } from '@phosphor-icons/react';
 import { useIsDev } from '../../store/audienceStore';
 import ExportMenu from './ExportMenu';
 
@@ -21,9 +21,11 @@ import ExportMenu from './ExportMenu';
 //   Posture Report  — produce the attestation a regulator / underwriter signs
 //   Settings        — configure my Bastion deployment
 const primaryItems = [
-    { id: 'current-runs', label: 'Current Runs', icon: Pulse },
-    { id: 'past-runs',    label: 'Past Runs',    icon: ClockCounterClockwise },
-    { id: 'evals',        label: 'Evals',        icon: Trophy },
+    { id: 'current-runs',   label: 'Current Runs',   icon: Pulse },
+    { id: 'past-runs',      label: 'Past Runs',      icon: ClockCounterClockwise },
+    { id: 'evals',          label: 'Evals',          icon: Trophy },
+    { id: 'posture-report', label: 'Posture Report', icon: ShieldCheck },
+    { id: 'settings',       label: 'Settings',       icon: GearSix },
 ];
 
 // Items that only make sense for the insurance audience. Risk & Coverage
@@ -101,7 +103,7 @@ export function SideNav({ currentView, setCurrentView }) {
                                 <div className="w-8 h-8 bg-black border border-slate-700 flex items-center justify-center p-1 rounded-none">
                                     <img src={`${import.meta.env.BASE_URL}bastion-logo.png`} alt="Bastion" className="w-full h-full object-contain" />
                                 </div>
-                                <span className="font-bold tracking-tight text-slate-900 dark:text-slate-50">clip</span>
+                                <span className="font-bold tracking-tight text-slate-900 dark:text-slate-50">bastion</span>
                             </div>
                             <button onClick={() => setMobileOpen(false)} className="p-2 -mr-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100" aria-label="Close navigation">
                                 <X size={22} weight="bold" />

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, ArrowUpRight, Play, X } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, ArrowUpRight, Play, X } from '@phosphor-icons/react';
 import { CTF_TARGETS } from '../../data/ctfTargets';
 import { EvalsPage } from './EvalsWidget';
+import { BenchmarkPage } from './BenchmarkWidget';
 
 // Evals tab = Sandbox (pick an OSS CTF target, the harness clones/attaches it in
-// a sandbox and runs a new eval) + Past evals (the held-or-leaked leaderboard +
-// Weave traces). Clicking a CTF card starts a sandbox session; only the source
+// a sandbox and runs a new eval) + Past evals (the leak-resistance leaderboard +
+// run traces). Clicking a CTF card starts a sandbox session; only the source
 // is an outbound link.
 const PAST_EVALS = [
-  { id: 'held-or-leaked', name: 'Held or Leaked', sub: '2 agents · 9 vectors · scored in W&B Weave', vuln: '89%', held: '100%' },
+  { id: 'leak-resistance', name: 'Leak Resistance', sub: '2 agents · 9 vectors · scored in the Bastion harness', vuln: '89%', held: '100%' },
 ];
 
 // The sandbox boot log for a target. Repo-backed CTFs get cloned + built; hosted
@@ -25,20 +26,20 @@ function buildLog(ctf) {
       `$ cd /sandbox/${slug} && docker compose up -d`,
       `[+] Running 2/2  network ${slug}_default  container ${slug}-app`,
       `target up on http://127.0.0.1:8000`,
-      `$ bastion attach --target http://127.0.0.1:8000 --suite held-or-leaked`,
+      `$ bastion attach --target http://127.0.0.1:8000 --suite leak-resistance`,
       `harness: orchestrator online, recon dispatched`,
       `harness: ${ctf.kind} surface mapped`,
-      `harness: scoring held vs leaked, tracing to Weave`,
+      `harness: scoring held vs leaked, tracing to run log`,
       `harness: run live. open Past Runs to watch the swarm`,
     ];
   }
   return [
     `$ bastion sandbox --hosted ${ctf.url}`,
     `sandbox: hosted target, no clone needed`,
-    `$ bastion attach --target ${ctf.url} --suite held-or-leaked`,
+    `$ bastion attach --target ${ctf.url} --suite leak-resistance`,
     `harness: orchestrator online, recon dispatched`,
     `harness: ${ctf.kind} mapped`,
-    `harness: scoring held vs leaked, tracing to Weave`,
+    `harness: scoring held vs leaked, tracing to run log`,
     `harness: run live. open Past Runs to watch the swarm`,
   ];
 }
@@ -106,52 +107,44 @@ function CtfCard({ c, active, onRun }) {
 }
 
 export default function EvalsView() {
-  const [openId, setOpenId] = useState(null);
-  const [running, setRunning] = useState(null);
-  const evalRun = PAST_EVALS.find((e) => e.id === openId);
-
-  if (evalRun) {
-    return (
-      <div>
-        <button onClick={() => setOpenId(null)} className="inline-flex items-center gap-1.5 mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer bg-transparent border-0 p-0">
-          <CaretLeft size={13} weight="bold" /> Evals
-        </button>
-        <EvalsPage />
-      </div>
-    );
-  }
-
+  const [benchOpen, setBenchOpen] = useState(false);
   return (
     <div>
-      {/* Sandbox */}
-      <div className="mb-7">
+      {/* Benchmark vs field — expandable, primary element */}
+      <div className="mb-7 border border-slate-300 dark:border-slate-700">
+        <button onClick={() => setBenchOpen((o) => !o)} className={`w-full flex items-center gap-4 px-6 py-6 text-left transition-colors cursor-pointer border-0 ${benchOpen ? 'bg-slate-50 dark:bg-slate-800/40' : 'bg-slate-50/70 dark:bg-slate-800/20 hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}>
+          <CaretRight size={22} weight="bold" className={`text-slate-500 dark:text-slate-400 shrink-0 transition-transform ${benchOpen ? 'rotate-90' : ''}`} />
+          <div className="min-w-0">
+            <div className="text-[16px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100">Benchmark vs field</div>
+            <div className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-0.5">Bastion vs OSS red-team tools · multi-turn attack-success rate</div>
+          </div>
+          <span className="ml-auto shrink-0 text-[11px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-400 dark:border-slate-500 px-4 py-2">{benchOpen ? 'Hide' : 'View tables'}</span>
+        </button>
+        {benchOpen && (
+          <div className="px-6 pb-7 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <BenchmarkPage />
+          </div>
+        )}
+      </div>
+
+      {/* Sandbox — WIP (compact, so it doesn't dominate the page) */}
+      <div>
         <div className="flex items-baseline gap-2 mb-2">
           <h2 className="text-[13px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Sandbox</h2>
           <span className="text-[12px] text-slate-400 dark:text-slate-500">pick an OSS CTF target, the harness clones it into a sandbox and runs a new eval</span>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          {CTF_TARGETS.map((c) => <CtfCard key={c.id} c={c} active={running?.id === c.id} onRun={() => setRunning(c)} />)}
-        </div>
-        {running && <SandboxSession ctf={running} onClose={() => setRunning(null)} />}
-      </div>
-
-      {/* Past evals */}
-      <div>
-        <h2 className="text-[13px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Past evals</h2>
-        <div className="flex flex-wrap gap-3">
-          {PAST_EVALS.map((e) => (
-            <button key={e.id} onClick={() => setOpenId(e.id)} className="group w-[320px] text-left border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] hover:border-slate-400 dark:hover:border-slate-600 transition-colors cursor-pointer px-4 py-3.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-bold tracking-tight text-slate-800 dark:text-slate-100">{e.name}</span>
-                <ArrowUpRight size={14} weight="bold" className="ml-auto text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
-              </div>
-              <div className="font-tech text-[10px] text-slate-400 dark:text-slate-500 mt-1">{e.sub}</div>
-              <div className="flex items-center gap-3 mt-2 font-tech text-[10px]">
-                <span className="text-blue-700 dark:text-blue-400">vuln {e.vuln} leaked</span>
-                <span className="text-sky-500 dark:text-sky-300">hardened {e.held} held</span>
-              </div>
-            </button>
-          ))}
+        <div className="relative max-h-[140px] overflow-hidden border border-slate-200 dark:border-slate-800">
+          <div className="blur-[3px] pointer-events-none select-none opacity-50 p-2.5">
+            <div className="flex flex-wrap gap-2.5">
+              {CTF_TARGETS.map((c) => <CtfCard key={c.id} c={c} active={false} onRun={() => {}} />)}
+            </div>
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-sm px-5 py-3 text-center shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Work in progress</div>
+              <div className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">Sandbox eval runs are being wired to the harness.</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

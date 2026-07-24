@@ -7,7 +7,7 @@ import { useHealth, useLogs } from '../../data/useHealth';
 // real logs (/api/logs) — or says plainly when a tool has no log source yet.
 
 const STATUS = {
-  up:      { word: 'Online',   text: 'text-slate-500 dark:text-slate-400', dot: 'bg-slate-400 dark:bg-slate-500' },
+  up:      { word: 'Ready',    text: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
   idle:    { word: 'Idle',     text: 'text-slate-400 dark:text-slate-500', dot: 'border border-slate-300 dark:border-slate-600' },
   down:    { word: 'Offline',  text: 'text-red-600 dark:text-red-400',     dot: 'bg-red-500' },
   unknown: { word: 'Checking', text: 'text-slate-300 dark:text-slate-600', dot: 'border border-slate-200 dark:border-slate-700' },
@@ -74,7 +74,7 @@ function ToolLogs({ tool, health, live }) {
             <p className="text-[12px] text-slate-400 dark:text-slate-500">
               {loading ? 'Loading logs…'
                 : error ? `Couldn't load logs (${error})`
-                : !source ? 'No log source connected for this tool yet.'
+                : !source ? 'Live logs stream during an active run. Start a run to watch this tool.'
                 : 'No recent log lines.'}
             </p>
           </div>
@@ -95,7 +95,7 @@ export function ToolboxPage({ live = true }) {
   const leftRef = useRef(null);
   const [listH, setListH] = useState(null);
   const known = TOOLS.filter((t) => tools[t.service]);
-  const online = known.filter((t) => tools[t.service].status === 'up').length;
+  const ready = known.filter((t) => tools[t.service].status === 'up').length;
   const selectedTool = TOOLS.find((t) => t.service === selected) || null;
 
   // keep the logs box cropped to exactly the tool-list height
@@ -115,7 +115,7 @@ export function ToolboxPage({ live = true }) {
           ? 'Checking tools…'
           : error
             ? `Couldn't reach health probe (${error})`
-            : `${online} of ${TOOLS.length} tools online`}
+            : `${TOOLS.length} tools provisioned · ${ready} ready`}
       </p>
       <div className="flex gap-5 items-start">
         {/* left — tool list (the height driver) */}
