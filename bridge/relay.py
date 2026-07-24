@@ -247,6 +247,24 @@ def history(session_id: str, limit: int = 400, authorization: str = Header(None)
     _, turns = read_turns(p, 0)
     return {"id": session_id, "turns": turns[-limit:], "total": len(turns)}
 
+@app.get("/api/sessions/{session_id}/summary")
+def summary(session_id: str, authorization: str = Header(None)):
+    """Derived per-engagement stats for the RunView exec-summary + cards."""
+    require_admin(authorization)
+    p = _find(session_id)
+    if not p:
+        raise HTTPException(404, "session not found")
+    _, turns = read_turns(p, 0)
+    tools = sorted({t.get("tool_name") for t in turns if t["kind"] == "tool_use" and t.get("tool_name")})
+    subagents = sum(1 for t in turns if t["kind"] == "tool_use" and t.get("tool_name") == "Task")
+    return {
+        "turns": len(turns),
+        "tools": tools,
+        "agents": max(1, subagents + 1),   # orchestrator + spawned subagents
+        "tool_calls": sum(1 for t in turns if t["kind"] == "tool_use"),
+        "thinking": sum(1 for t in turns if t["kind"] == "thinking"),
+    }
+
 class InputBody(BaseModel):
     text: str
 
