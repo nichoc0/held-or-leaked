@@ -6,7 +6,15 @@ import { ToolCallCard } from '../ui/ToolCallCard';
 // the live structured transcript (thinking / text / tool_use+result / system).
 // Read-only here; the admin "talk to it" input is a sibling composer.
 
+// relay base: VITE_API_URL in prod (e.g. https://relay.pistonsolutions.ai),
+// empty in dev so the Vite proxy handles /api.
 function wsUrl(id) {
+  const base = import.meta.env.VITE_API_URL;
+  if (base) {
+    const u = new URL(base);
+    const proto = u.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${u.host}/api/sessions/${id}/stream`;
+  }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   return `${proto}://${location.host}/api/sessions/${id}/stream`;
 }

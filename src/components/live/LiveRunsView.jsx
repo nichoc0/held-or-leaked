@@ -11,9 +11,10 @@ export default function LiveRunsView() {
   const [sel, setSel] = useState(null);
   const [err, setErr] = useState(null);
 
+  const API = import.meta.env.VITE_API_URL || '';
   async function refresh() {
     try {
-      const r = await fetch('/api/sessions?scope=recent');
+      const r = await fetch(`${API}/api/sessions?scope=recent`);
       const d = await r.json();
       setSessions(d.sessions || []);
       setErr(null);
