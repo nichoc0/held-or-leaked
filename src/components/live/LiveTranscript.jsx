@@ -40,20 +40,20 @@ function Line({ t, result }) {
     const firstLines = res.split('\n').slice(0, 6).join('\n');
     return (
       <div className="py-0.5">
-        <div><span className="text-slate-400">⏺ </span><span className="text-slate-300">{t.tool_name}</span><span className="text-slate-500">({compactArgs(t.tool_input)})</span></div>
+        <div><span className="text-slate-600">⏺ </span><span className="text-slate-900 font-semibold">{t.tool_name}</span><span className="text-slate-500">({compactArgs(t.tool_input)})</span></div>
         {res && <div className="text-slate-500 pl-3 whitespace-pre-wrap">⎿ {firstLines}{res.split('\n').length > 6 ? '\n  …' : ''}</div>}
       </div>
     );
   }
   if (t.kind === 'tool_result') return null;
   if (t.kind === 'system' || t.kind === 'meta') {
-    return <div className="text-slate-600 py-0.5 truncate">{t.kind === 'system' ? '· ' : '· '}{(t.text || '').slice(0, 120)}</div>;
+    return <div className="text-slate-400 py-0.5 truncate">· {(t.text || '').slice(0, 120)}</div>;
   }
   // text
   if (t.role === 'user') {
-    return <div className="text-slate-300 whitespace-pre-wrap py-0.5">❯ {t.text}</div>;
+    return <div className="text-slate-700 font-medium whitespace-pre-wrap py-0.5">❯ {t.text}</div>;
   }
-  return <div className="text-slate-200 whitespace-pre-wrap py-0.5">{t.text}</div>;
+  return <div className="text-slate-900 whitespace-pre-wrap py-0.5">{t.text}</div>;
 }
 
 export default function LiveTranscript({ sessionId }) {
@@ -97,10 +97,10 @@ export default function LiveTranscript({ sessionId }) {
     <div
       ref={scrollRef}
       onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}
-      className="h-full overflow-y-auto bg-[#0d1117] text-[11px] leading-[1.45] font-mono px-3 py-2"
+      className="h-full overflow-y-auto bg-white text-[11px] leading-[1.45] font-mono px-3 py-2"
     >
       {turns.length === 0 && (
-        <div className="text-slate-600">{status === 'live' ? 'waiting for output…' : status}</div>
+        <div className="text-slate-400">{status === 'live' ? 'waiting for output…' : status}</div>
       )}
       {turns.map((t, i) => (
         <Line key={t.uuid ? `${t.uuid}-${i}` : i} t={t} result={t.kind === 'tool_use' ? results[t.tool_id] : null} />
