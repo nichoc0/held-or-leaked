@@ -291,11 +291,16 @@ def summary(session_id: str, authorization: str = Header(None)):
         events.append({"node": f"Agent:{a['name']}", "parent": "Run", "rel": "spawned", "detail": a["summary"], "kind": "endpoint"})
     for t in tools:
         events.append({"node": f"Tool:{t}", "parent": "Run", "rel": "used", "detail": t, "kind": "reveal"})
+    # swarm surface: the agents + tools the run is working (targets never empty)
+    targets = [{"id": a["id"], "label": a["name"]} for a in swarm_agents] + \
+              [{"id": f"t-{i}", "label": t} for i, t in enumerate(tools)]
+    swarm = {"campaignTurns": max(1, len(turns)), "targets": targets, "path": []}
     return {
         "turns": len(turns),
         "tools": tools,
         "swarmAgents": swarm_agents,
         "events": events,
+        "swarm": swarm,
         "agents": len(swarm_agents),
         "tool_calls": sum(1 for t in turns if t["kind"] == "tool_use"),
         "thinking": sum(1 for t in turns if t["kind"] == "thinking"),

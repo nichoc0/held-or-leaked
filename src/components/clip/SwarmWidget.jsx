@@ -171,7 +171,7 @@ export function SwarmPage({ live = true, activeRun = null, summary = null }) {
   const PATH_MAX = CAMPAIGN_TURNS;
 
   const [mode, setMode] = useState('attacking');
-  const [activeId, setActiveId] = useState(TARGETS[1]?.id ?? TARGETS[0].id);
+  const [activeId, setActiveId] = useState(TARGETS[1]?.id ?? TARGETS[0]?.id ?? null);
   const [count, setCount] = useState(8);
   const [redirecting, setRedirecting] = useState(false);
   const pb = usePlayback(PATH_MAX, { startAtEnd: true, stepMs: 130 });

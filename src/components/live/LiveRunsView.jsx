@@ -21,9 +21,11 @@ function toRun(s, sum) {
     swarmAgents,
     tools: sum?.tools || [],
     findings: [],
-    // live activity graph derived from the run (grows as it goes); empty swarm
-    // so it doesn't fall back to the Penny fixture.
-    swarm: { campaignTurns: sum?.turns || 0, targets: [], path: [] },
+    // live activity graph + swarm surface derived from the run (grow as it goes).
+    // targets must never be empty (SwarmPage indexes targets[0]).
+    swarm: (sum?.swarm && sum.swarm.targets?.length)
+      ? sum.swarm
+      : { campaignTurns: sum?.turns || 1, targets: [{ id: 'orch', label: 'Orchestrator' }], path: [] },
     events: sum?.events || [],
   };
 }
