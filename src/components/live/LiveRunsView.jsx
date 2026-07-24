@@ -114,10 +114,18 @@ export default function LiveRunsView() {
           {active.length === 0 && !err && <div className="px-3 py-1 text-[10px] text-slate-500">none</div>}
           {idle.length > 0 && (
             <>
-              <button onClick={() => setShowIdle((v) => !v)} className="w-full px-3 pt-3 pb-0.5 text-left text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-800">
-                {showIdle ? '−' : '+'} idle · {idle.length}
-              </button>
-              {showIdle && idle.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
+              <div className="px-3 pt-3 pb-1.5">
+                <button onClick={() => setShowIdle((v) => !v)}
+                  className="w-full px-2 py-1 rounded border border-slate-300 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors">
+                  {showIdle ? 'hide idle' : `all sessions (${active.length + idle.length})`}
+                </button>
+              </div>
+              {showIdle && (
+                <>
+                  <div className="px-3 pb-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">idle · {idle.length}</div>
+                  {idle.map((s) => <SessionRow key={s.id} s={s} open={open} toggle={toggle} />)}
+                </>
+              )}
             </>
           )}
         </div>
