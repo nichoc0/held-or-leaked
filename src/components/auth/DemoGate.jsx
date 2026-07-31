@@ -56,10 +56,10 @@ function SignInScreen() {
         <p className="mt-6 text-[10px] text-slate-400 dark:text-slate-500 text-center">
           Don&apos;t have access? Email{' '}
           <a
-            href="mailto:info@pistonsolutions.ai"
+            href="mailto:team@trybastion.ai"
             className="text-blue-600 dark:text-blue-400 underline underline-offset-2"
           >
-            info@pistonsolutions.ai
+            team@trybastion.ai
           </a>
           .
         </p>

@@ -339,7 +339,7 @@ export default function PostureAssessmentModal({ open, onClose }) {
                                 />
                             </div>
                             {status === 'error' && (
-                                <p className="mt-3 text-xs text-red-500">Could not send — try again, or email info@pistonsolutions.ai directly.</p>
+                                <p className="mt-3 text-xs text-red-500">Could not send — try again, or email team@trybastion.ai directly.</p>
                             )}
                             <div className="mt-6 flex items-center justify-between">
                                 <button
